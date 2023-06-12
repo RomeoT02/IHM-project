@@ -1,0 +1,148 @@
+import csv
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QRadioButton, QCheckBox, QPushButton, QMessageBox, QLineEdit
+
+class MultipleChoiceQuiz(QMainWindow):
+    def __init__(self, quiz_data):
+        super().__init__()
+        self.quiz_data = quiz_data
+        self.current_question = 0
+        self.score = 0
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("Multiple Choice Quiz")
+        self.setGeometry(200, 200, 500, 300)
+
+        self.question_label = QLabel(self.quiz_data[self.current_question][1], self)
+        self.question_label.move(20, 20)
+        self.question_label.setWordWrap(True)
+
+        self.choices_layout = QVBoxLayout()
+        self.choices_widget = QWidget(self)
+        self.choices_widget.setLayout(self.choices_layout)
+        self.choices_widget.move(20, 70)
+
+        question_type = self.quiz_data[self.current_question][0]
+        if question_type == 'radio':
+            self.create_radio_buttons()
+        elif question_type == 'checkbox':
+            self.create_checkboxes()
+        elif question_type == 'text':
+            self.create_text_input()
+
+        self.submit_button = QPushButton('Submit', self)
+        self.submit_button.move(20, 200)
+        self.submit_button.clicked.connect(self.check_answer)
+
+        self.hint_label = QLabel("", self)
+        self.hint_label.move(20, 230)
+
+    def create_radio_buttons(self):
+        choices = self.quiz_data[self.current_question][2].split(';')
+        for choice in choices:
+            radio_button = QRadioButton(choice)
+            self.choices_layout.addWidget(radio_button)
+
+    def create_checkboxes(self):
+        choices = self.quiz_data[self.current_question][2].split(';')
+        for choice in choices:
+            checkbox = QCheckBox(choice)
+            self.choices_layout.addWidget(checkbox)
+
+    def create_text_input(self):
+        self.text_input = QLineEdit(self)
+        self.choices_layout.addWidget(self.text_input)
+
+    def check_answer(self):
+        question_type = self.quiz_data[self.current_question][0]
+        correct_answer = self.quiz_data[self.current_question][3]
+        user_answer = self.get_user_answer()
+
+        if question_type == 'text':
+            self.evaluate_text_answer(user_answer, correct_answer)
+        else:
+            self.evaluate_choices_answer(user_answer, correct_answer)
+
+    def get_user_answer(self):
+        question_type = self.quiz_data[self.current_question][0]
+        if question_type == 'radio':
+            for i in range(self.choices_layout.count()):
+                radio_button = self.choices_layout.itemAt(i).widget()
+                if radio_button.isChecked():
+                    return radio_button.text()
+        elif question_type == 'checkbox':
+            user_answer = []
+            for i in range(self.choices_layout.count()):
+                checkbox = self.choices_layout.itemAt(i).widget()
+                if checkbox.isChecked():
+                    user_answer.append(checkbox.text())
+            return user_answer
+        elif question_type == 'text':
+            return self.text_input.text()
+
+    def evaluate_choices_answer(self, user_answer, correct_answer):
+        if user_answer == correct_answer:
+            self.score += 1
+        else:
+            hint = self.quiz_data[self.current_question][4]
+            self.hint_label.setText(hint)
+
+        self.current_question += 1
+        if self.current_question < len(self.quiz_data):
+            self.update_question()
+        else:
+            self.show_result()
+
+    def evaluate_text_answer(self, user_answer, correct_answer):
+        if user_answer.lower() == correct_answer.lower():
+            self.score += 1
+        else:
+            hint = self.quiz_data[self.current_question][4]
+            self.hint_label.setText(hint)
+
+        self.current_question += 1
+        if self.current_question < len(self.quiz_data):
+            self.update_question()
+        else:
+            self.show_result()
+
+    def update_question(self):
+        self.question_label.setText(self.quiz_data[self.current_question][1])
+        self.clear_choices()
+        question_type = self.quiz_data[self.current_question][0]
+        if question_type == 'radio':
+            self.create_radio_buttons()
+        elif question_type == 'checkbox':
+            self.create_checkboxes()
+        elif question_type == 'text':
+            self.create_text_input()
+
+        self.hint_label.setText("")
+
+    def clear_choices(self):
+        while self.choices_layout.count() > 0:
+            item = self.choices_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def show_result(self):
+        result_message = f"You scored {self.score}/{len(self.quiz_data)}!"
+        QMessageBox.information(self, "Quiz Result", result_message)
+
+def load_quiz_data(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            quiz_data = list(reader)
+        return quiz_data
+    except FileNotFoundError:
+        print(f"Could not find the file: {file_path}")
+
+if __name__ == '__main__':
+    csv_file_path = 'path/to/your/file.csv'  # Replace with the actual file path on your computer
+    quiz_data = load_quiz_data(csv_file_path)
+
+    app = QApplication([])
+    quiz = MultipleChoiceQuiz(quiz_data)
+    quiz.show()
+    app.exec()
